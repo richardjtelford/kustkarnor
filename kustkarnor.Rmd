@@ -1,0 +1,47 @@
+---
+title: "Kustkarnor"
+author: "Richard J. Telford"
+date: "September 11, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load-data}
+loadd(fos_meta)
+loadd(fos_percent)
+```
+
+```{r stratigraphies, results = "hide"}
+fos_data <- fos_meta %>% 
+  select(site, date) %>% 
+  bind_cols(fos_percent) %>% 
+  gather(key = taxon, value = percent, -site, -date) %>% 
+  group_by(site, taxon) %>% 
+  filter(
+    percent > 0, 
+    max(percent) >= 3, 
+    n() >= 3 
+  ) %>% 
+  group_by(site) %>% 
+  nest() %>% 
+  mutate(data = map(data, ~spread(., key = "taxon", value = "percent", fill = 0)))
+fos_data
+  
+map2(
+  .x = fos_data$data,
+  .y = fos_data$site,
+  ~ strat.plot(
+    d = select(.x,-date) %>% as.data.frame(),
+    yvar = pull(.x, date),
+    xLeft = 0.15,
+    yBottom = .09,
+    yTop = 0.7,
+    scale.percent = TRUE,
+    title = .y
+  ))
+  
+```
+
