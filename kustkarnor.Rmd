@@ -18,27 +18,26 @@ loadd(fos_percent)
 fos_data <- fos_meta %>% 
   select(site, date) %>% 
   bind_cols(fos_percent) %>% 
-  gather(key = taxon, value = percent, -site, -date) %>% 
+  pivot_longer(cols = -(site:date), names_to = "taxon", values_to = "percent") %>% 
   group_by(site, taxon) %>% 
   filter(
-    percent > 0, 
     max(percent) >= 3, 
-    n() >= 3 
+    sum(percent > 0) >= 3 
   ) %>% 
   group_by(site) %>% 
   nest() %>% 
-  mutate(data = map(data, ~spread(., key = "taxon", value = "percent", fill = 0)))
-fos_data
-  
+  mutate(data = map(data, ~pivot_wider(.x, names_from = "taxon", values_from = "percent")))
+
 map2(
   .x = fos_data$data,
   .y = fos_data$site,
   ~ strat.plot(
-    d = select(.x,-date) %>% as.data.frame(),
+    d = select(.x, -date) %>% as.data.frame(),
     yvar = pull(.x, date),
     xLeft = 0.15,
     yBottom = .09,
     yTop = 0.7,
+    xRight = 0.98,
     scale.percent = TRUE,
     title = .y
   ))
