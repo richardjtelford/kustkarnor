@@ -26,21 +26,27 @@ plan <- drake_plan(
     )) %>%
     select(-countsum) %>%
     #merge taxa
-    gather(key = taxa, value = count, -site, -sample,-depth,-date) %>%
-    mutate(taxa = gsub("\\.\\.\\.\\d*$", "", taxa)) %>% #dups end with three dots and then digits
+    pivot_longer(cols = -(site:date), names_to = "taxa", values_to = "count") %>%
+    mutate(taxa = str_remove(taxa, "\\.{3}\\d*$")) %>% #dups end with three dots and then digits
     group_by(site, sample, depth, date, taxa) %>%
+    #merge duplicate taxa
     summarise(count = sum(count)) %>%
     #calculate percent
     mutate(percent = count/sum(count) * 100) %>%
     select(-count) %>%
-    spread(key = taxa, value = percent) %>%
+    pivot_wider(names_from = taxa, values_from = percent) %>%
     #remove metadata
     ungroup() %>%
     select(-site,-sample,-depth,-date),
 
   #diagnostics
+  #goodness of fit
+  #analogue
+  #reconstruction significance
 
   #reconstructions
+  #model
+  #predictions
 
   #rmarkdown
   output = rmarkdown::render(knitr_in("kustkarnor.Rmd"))
