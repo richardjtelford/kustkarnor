@@ -1,12 +1,12 @@
 ---
 title: "Kustkarnor"
 author: "Richard J. Telford"
-date: "September 11, 2019"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r load-data}
@@ -15,6 +15,9 @@ loadd(fos_percent)
 ```
 
 ```{r stratigraphies, results = "hide"}
+mgp <- c(1.5, .3, 0)
+par(tcl = -0.2, mgp = mgp)
+
 fos_data <- fos_meta %>% 
   select(site, date) %>% 
   bind_cols(fos_percent) %>% 
@@ -34,12 +37,14 @@ map2(
   ~ strat.plot(
     d = select(.x, -date) %>% as.data.frame(),
     yvar = pull(.x, date),
-    xLeft = 0.15,
+    xLeft = 0.1,
     yBottom = .09,
     yTop = 0.7,
     xRight = 0.98,
     scale.percent = TRUE,
-    title = .y
+    title = .y, 
+    ylabel = "Year CE",
+    mgp = mgp
   ))
   
 ```
