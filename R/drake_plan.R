@@ -5,13 +5,54 @@ library("assertr")
 library("vegan")
 library("rioja")
 library("palaeoSig")
+library("here")
 #library("Hmisc") # assumes you have mdb-tools installed
 
 plan <- drake_plan(
   #load calibration data
 
+  #read env data
+  env = Hmisc::mdb.get(file_in("data/define.mdb"), tables = "fchem") %>%
+    #remove annoying labels
+    mutate_if(is.numeric, as.vector) %>%
+    as_tibble() %>%
+    #siteId to lower case
+    mutate(siteId = tolower(siteId)) %>%
+    #TN = TDN * 1.5
+    mutate(TN = if_else(!is.na(TDN), true = TDN * 1.5, false = TN)) %>%
+    #missing Norwegian salinities
+    mutate(salinity = case_when(
+      siteId == "mo-2" ~ 20, # wide range, estimated from range
+      siteId == "s-9" ~ 16, # wide range, estimated from range
+      TRUE ~ salinity)) %>%
+    #zap missing data
+    filter(!is.na(TN)),
+
+
+  #transform env
+  envT = env %>%
+    select(siteId, salinity, depth, TN, TP, exposed, countryId, latitude, longitude) %>%
+    mutate(
+      salinity = sqrt(salinity),
+      depth = log(depth),
+      TP = log(TP),
+      TN = log(TN),
+      exposed = exposed == "1"),#no exposed sites?
+  # all.env<-!is.na(rowSums(envT[,2:5]))
+  # env$siteId[!all.env]
+
+  site_map = {
+    mp <- map_data("world", xlim = c(-10, 50), ylim = c(40, 75))
+  ggplot(env, aes(x = longitude, y = latitude, colour = countryId)) +
+    geom_map(map = mp, data = mp, aes(map_id = region), inherit.aes = FALSE, fill = "grey70") +
+    geom_point() +
+    coord_quickmap()},
+
+
   #load fossil data
-  fos0 = readxl::read_xlsx("data/Alla kustkärnor med koder_20190903.xlsx", sheet = "Sheet1", skip = 1) %>%
+  fos0 = readxl::read_xlsx(
+    file_in(here("data", "Alla kustkärnor med koder_20190903.xlsx")),
+    sheet = "Sheet1", skip = 1) %>%
     rename(site = ...1, sample = ...2, depth = ...3, date = ...4, countsum = ...5),
   fos_meta = fos0 %>% select(site, sample, depth, date, countsum),
 
