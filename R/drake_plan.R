@@ -39,7 +39,7 @@ plan <- drake_plan(
       TN = log(TN),
       exposed = exposed == "1") %>% #no exposed sites?
     #sites with diatom data
-    semi_join(spp, by = c(siteId = "sampleId")) %>%
+    semi_join(spp0, by = c(siteId = "sampleId")) %>%
     arrange(siteId),
   # all.env<-!is.na(rowSums(envT[,2:5]))
   # env$siteId[!all.env]
@@ -52,7 +52,7 @@ plan <- drake_plan(
     coord_quickmap()},
 
   #load species data
-  spp = Hmisc::mdb.get(file_in("data/processCounts.mdb"), tables = "FinalPercent") %>%
+  spp0 = Hmisc::mdb.get(file_in("data/processCounts.mdb"), tables = "FinalPercent") %>%
     mutate(
       sampleId = tolower(sampleId),
       perc = as.vector(perc)
@@ -62,10 +62,13 @@ plan <- drake_plan(
       values_from = "perc",
       values_fill = list(perc = 0)) %>%
     #sites with chemistry
-    semi_join(env, spp, by = c("sampleId" = "siteId" )) %>%
+    semi_join(env, by = c("sampleId" = "siteId" )) %>%
     arrange(sampleId),
 
-
+  #check then remove meta data
+   spp = spp0 %>%
+    verify(identical(sampleId, envT$siteId)) %>%
+    select(-countryId, -sampleId),
 
   ####load fossil data ####
   fos0 = readxl::read_xlsx(
