@@ -9,7 +9,7 @@ library("here")
 #library("Hmisc") # assumes you have mdb-tools installed
 
 plan <- drake_plan(
-  #load calibration data
+  ####load calibration data####
 
   #read env data
   env = Hmisc::mdb.get(file_in("data/define.mdb"), tables = "fchem") %>%
@@ -37,19 +37,37 @@ plan <- drake_plan(
       depth = log(depth),
       TP = log(TP),
       TN = log(TN),
-      exposed = exposed == "1"),#no exposed sites?
+      exposed = exposed == "1") %>% #no exposed sites?
+    #sites with diatom data
+    semi_join(spp, by = c(siteId = "sampleId")) %>%
+    arrange(siteId),
   # all.env<-!is.na(rowSums(envT[,2:5]))
   # env$siteId[!all.env]
 
   site_map = {
     mp <- map_data("world", xlim = c(-10, 50), ylim = c(40, 75))
-  ggplot(env, aes(x = longitude, y = latitude, colour = countryId)) +
+  ggplot(envT, aes(x = longitude, y = latitude, colour = countryId)) +
     geom_map(map = mp, data = mp, aes(map_id = region), inherit.aes = FALSE, fill = "grey70") +
     geom_point() +
     coord_quickmap()},
 
+  #load species data
+  spp = Hmisc::mdb.get(file_in("data/processCounts.mdb"), tables = "FinalPercent") %>%
+    mutate(
+      sampleId = tolower(sampleId),
+      perc = as.vector(perc)
+    ) %>%
+    pivot_wider(
+      names_from = "taxonCode",
+      values_from = "perc",
+      values_fill = list(perc = 0)) %>%
+    #sites with chemistry
+    semi_join(env, spp, by = c("sampleId" = "siteId" )) %>%
+    arrange(sampleId),
 
-  #load fossil data
+
+
+  ####load fossil data ####
   fos0 = readxl::read_xlsx(
     file_in(here("data", "Alla kustkärnor med koder_20190903.xlsx")),
     sheet = "Sheet1", skip = 1) %>%
@@ -96,3 +114,6 @@ plan <- drake_plan(
 config <- drake_config(plan = plan)
 
 config
+
+
+
