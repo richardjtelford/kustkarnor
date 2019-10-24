@@ -76,7 +76,7 @@ plan <- drake_plan(
 
   ####load fossil data ####
   fos0 = readxl::read_xlsx(
-    file_in(here("data", "Alla kustkärnor med koder_20190903.xlsx")),
+    file_in(!!here("data", "Alla kustkärnor med koder_20190903.xlsx")),
     sheet = "Sheet1", skip = 1) %>%
     rename(site = ...1, sample = ...2, depth = ...3, date = ...4, countsum = ...5),
 
@@ -137,11 +137,26 @@ plan <- drake_plan(
     facet_wrap( ~ site) +
     labs(x = "Date CE", y = expression(Chord^2~distance)),
 
-  #reconstruction significance
+  #####Transfer function
+  #WA
+  mod_wa = WA(sqrt(spp), envT$TN, mono = TRUE) %>%
+    crossval(),
+
 
   #reconstructions
-  #model
-  #predictions
+  pred = predict(
+    object = mod_wa,
+    newdata = select(fos_percent, -(site:date))
+  ) %>%
+    pluck("fit") %>%
+    as_tibble() %>%
+    bind_cols(select(fos_percent, site:date)),
+
+  pred_plot = ggplot(pred, aes(x = date, y = WA.m, colour = site)) +
+    geom_line() +
+    labs(x = "Date CE", y = "Log(TN?units)", colour = "Site"),
+
+  #reconstruction significance
 
   #rmarkdown
   output = rmarkdown::render(knitr_in("kustkarnor.Rmd"))
