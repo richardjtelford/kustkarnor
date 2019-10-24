@@ -10,17 +10,15 @@ knitr::opts_chunk$set(echo = FALSE)
 ```
 
 ```{r load-data}
-loadd(fos_meta)
 loadd(fos_percent)
+loadd(diagnostic_plots)
 ```
 
 ```{r stratigraphies, results = "hide"}
 mgp <- c(1.5, .3, 0)
 par(tcl = -0.2, mgp = mgp)
 
-fos_data <- fos_meta %>% 
-  select(site, date) %>% 
-  bind_cols(fos_percent) %>% 
+fos_data <- fos_percent %>% 
   pivot_longer(cols = -(site:date), names_to = "taxon", values_to = "percent") %>% 
   group_by(site, taxon) %>% 
   filter(
@@ -49,3 +47,16 @@ map2(
   
 ```
 
+## Coverage plots
+
+```{r}
+diagnostic_plots %>% 
+  pull(coverage_plots) %>%
+    cowplot::plot_grid(plotlist = .)
+```
+
+## Analogue quality
+
+```{r}
+read(ana_qual)
+```

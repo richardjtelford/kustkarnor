@@ -6,6 +6,8 @@ library("vegan")
 library("rioja")
 library("palaeoSig")
 library("here")
+library("ggpalaeo")
+library("magrittr")
 #library("Hmisc") # assumes you have mdb-tools installed
 
 plan <- drake_plan(
@@ -57,12 +59,12 @@ plan <- drake_plan(
       sampleId = tolower(sampleId),
       perc = as.vector(perc)
     ) %>%
+    #sites with chemistry
+    semi_join(env, by = c("sampleId" = "siteId" )) %>%
     pivot_wider(
       names_from = "taxonCode",
       values_from = "perc",
       values_fill = list(perc = 0)) %>%
-    #sites with chemistry
-    semi_join(env, by = c("sampleId" = "siteId" )) %>%
     arrange(sampleId),
 
   #check then remove meta data
@@ -75,15 +77,13 @@ plan <- drake_plan(
     file_in(here("data", "Alla kustkärnor med koder_20190903.xlsx")),
     sheet = "Sheet1", skip = 1) %>%
     rename(site = ...1, sample = ...2, depth = ...3, date = ...4, countsum = ...5),
-  fos_meta = fos0 %>% select(site, sample, depth, date, countsum),
 
   #calculate percent
   fos_percent = fos0 %>%
     #check countsum matches actual countsums
     verify(all.equal(
       countsum,
-      fos0 %>%
-        select(-site,-sample,-depth,-date,-countsum) %>%
+      select(., -(site:countsum)) %>%
         rowSums()
     )) %>%
     select(-countsum) %>%
@@ -96,14 +96,70 @@ plan <- drake_plan(
     #calculate percent
     mutate(percent = count/sum(count) * 100) %>%
     select(-count) %>%
+    #delete taxa with all zero abundances
+    group_by(taxa) %>%
+    filter(sum(percent) > 0) %>%
     pivot_wider(names_from = taxa, values_from = percent) %>%
-    #remove metadata
-    ungroup() %>%
-    select(-site,-sample,-depth,-date),
+    #nest
+    group_by(site) %>%
+    nest(),
 
-  #diagnostics
+  #####diagnostics####
+  diagnostic_plots = fos_percent %>%
+    #coverage plots
+    mutate(
+      coverage_plots = map(
+        data,
+        ~ {coverage_plot(spp, fos = select(.x, -(sample:date))) +
+             theme(legend.position = "none")
+    })) %>%
+    mutate(
+      analogue_quality = map(
+        data,
+        ~ {analogue_distances(
+          spp,
+          fos = select(.x,-(sample:date)),
+          df = select(.x, sample:date),
+          x_axis = "date"
+        )
+        }),
+      analogue_quality_plot = map(analogue_quality, autoplot))
+  ,
+
+
+
   #goodness of fit
+  reslen = analogue::residLen(
+    X = sqrt(spp),
+    env = envT$TN,
+    passive = fos_percent %>%
+      unnest(cols = data) %>%
+      ungroup() %>%
+      select(-(site:date)) %>%
+      sqrt()
+  ) %>% autoplot(df = fos_percent %>%
+                   unnest(cols = data) %>%
+                   ungroup() %>% select(site:date),
+                 x_axis = "date") +
+    facet_wrap( ~ site) +
+    labs(x = "Date CE", y = "Squared residual distance", fill = "Goodness of fit"),
+
   #analogue
+  ana_qual = analogue_distances(
+    spp = spp/100,
+    fos = fos_percent %>%
+      unnest(cols = data) %>%
+      ungroup() %>%
+      select(-(site:date)) %>%
+      divide_by(100)
+  ) %>%
+    autoplot( df = fos_percent %>%
+                unnest(cols = data) %>%
+                ungroup() %>% select(site:date),
+              x_axis = "date") +
+    facet_wrap( ~ site) +
+    labs(x = "Date CE", y = expression(Chord^2~distance)),
+
   #reconstruction significance
 
   #reconstructions
@@ -119,4 +175,10 @@ config <- drake_config(plan = plan)
 config
 
 
+if(FALSE){#testbed
 
+analogue_distances
+
+  sort(setdiff(names(fos_percent), names(spp)))
+  sort(setdiff(names(spp), names(fos_percent)))
+}
