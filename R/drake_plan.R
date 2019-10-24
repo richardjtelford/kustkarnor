@@ -10,6 +10,8 @@ library("ggpalaeo")
 library("magrittr")
 #library("Hmisc") # assumes you have mdb-tools installed
 
+source("R/coverage_plot.R")
+
 plan <- drake_plan(
   ####load calibration data####
 
@@ -102,39 +104,23 @@ plan <- drake_plan(
     pivot_wider(names_from = taxa, values_from = percent) ,
 
   #####diagnostics####
-  diagnostic_plots = fos_percent %>%
+  #coverage
+  coverage_plots = fos_percent %>%
     #nest
     group_by(site) %>%
-    nest() %>%
-    #coverage plots
-    mutate(
-      coverage_plots = map(
-        data,
-        ~ {coverage_plot(spp, fos = select(.x, -(sample:date))) +
-             theme(legend.position = "none")
-    })) %>%
-    mutate(
-      analogue_quality = map(
-        data,
-        ~ {analogue_distances(
-          spp,
-          fos = select(.x,-(sample:date)),
-          df = select(.x, sample:date),
-          x_axis = "date"
-        )
-        }),
-      analogue_quality_plot = map(analogue_quality, autoplot))
-  ,
-
-
+    select(-(sample:date)) %>%
+    #coverage plot
+    coverage_plot(spp = spp, fos = .) +
+    facet_wrap(~site),
 
   #goodness of fit
-  reslen = analogue::residLen(
+  reslen_plot = analogue::residLen(
     X = sqrt(spp),
     env = envT$TN,
     passive = fos_percent %>% select(-(site:date)) %>%
       sqrt()
-  ) %>% autoplot(df = fos_percent %>% select(site:date),
+  ) %>%
+    autoplot(df = fos_percent %>% select(site:date),
                  x_axis = "date") +
     facet_wrap( ~ site) +
     labs(x = "Date CE", y = "Squared residual distance", fill = "Goodness of fit"),
@@ -163,13 +149,10 @@ plan <- drake_plan(
 
 config <- drake_config(plan = plan)
 
-config
-
-
 if(FALSE){#testbed
-
-analogue_distances
 
   sort(setdiff(names(fos_percent), names(spp)))
   sort(setdiff(names(spp), names(fos_percent)))
 }
+
+config
