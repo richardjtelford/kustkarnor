@@ -99,13 +99,13 @@ plan <- drake_plan(
     #delete taxa with all zero abundances
     group_by(taxa) %>%
     filter(sum(percent) > 0) %>%
-    pivot_wider(names_from = taxa, values_from = percent) %>%
-    #nest
-    group_by(site) %>%
-    nest(),
+    pivot_wider(names_from = taxa, values_from = percent) ,
 
   #####diagnostics####
   diagnostic_plots = fos_percent %>%
+    #nest
+    group_by(site) %>%
+    nest() %>%
     #coverage plots
     mutate(
       coverage_plots = map(
@@ -132,14 +132,9 @@ plan <- drake_plan(
   reslen = analogue::residLen(
     X = sqrt(spp),
     env = envT$TN,
-    passive = fos_percent %>%
-      unnest(cols = data) %>%
-      ungroup() %>%
-      select(-(site:date)) %>%
+    passive = fos_percent %>% select(-(site:date)) %>%
       sqrt()
-  ) %>% autoplot(df = fos_percent %>%
-                   unnest(cols = data) %>%
-                   ungroup() %>% select(site:date),
+  ) %>% autoplot(df = fos_percent %>% select(site:date),
                  x_axis = "date") +
     facet_wrap( ~ site) +
     labs(x = "Date CE", y = "Squared residual distance", fill = "Goodness of fit"),
@@ -148,14 +143,10 @@ plan <- drake_plan(
   ana_qual = analogue_distances(
     spp = spp/100,
     fos = fos_percent %>%
-      unnest(cols = data) %>%
-      ungroup() %>%
       select(-(site:date)) %>%
       divide_by(100)
   ) %>%
-    autoplot( df = fos_percent %>%
-                unnest(cols = data) %>%
-                ungroup() %>% select(site:date),
+    autoplot(df = fos_percent %>% select(site:date),
               x_axis = "date") +
     facet_wrap( ~ site) +
     labs(x = "Date CE", y = expression(Chord^2~distance)),
