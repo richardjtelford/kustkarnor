@@ -85,4 +85,9 @@ Reconstructions
 readd(pred_plot)
 ```
 
+## Reconstruction significance
+
+```{r recon_sig}
+cowplot::plot_grid(plotlist = readd(recon_sig)$recon_sig_plot)
+```
 

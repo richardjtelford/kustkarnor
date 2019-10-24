@@ -157,6 +157,18 @@ plan <- drake_plan(
     labs(x = "Date CE", y = "Log(TN?units)", colour = "Site"),
 
   #reconstruction significance
+  recon_sig = fos_percent %>%
+    group_by(site) %>%
+    select(-(sample:date)) %>%
+    nest() %>%
+    mutate(data = map(data, sqrt)) %>%
+    mutate(
+      recon_sig = map(
+        .x = data,
+        ~randomTF(spp = sqrt(spp), fos = .x, env = envT$TN, fun = WA, mono = TRUE, col = 3, n = 999)),
+      recon_sig_plot = map(recon_sig, autoplot, variable_names = "log(TN)"),
+      recon_sig_plot = map2(.x = recon_sig_plot, .y = site, ~{.x + ggtitle(.y)})
+      ),
 
   #rmarkdown
   output = rmarkdown::render(knitr_in("kustkarnor.Rmd"))
