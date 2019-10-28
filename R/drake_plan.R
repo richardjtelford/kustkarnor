@@ -56,13 +56,22 @@ plan <- drake_plan(
     coord_quickmap()},
 
   #load species data
-  spp0 = Hmisc::mdb.get(file_in("data/processCounts.mdb"), tables = "FinalPercent") %>%
+  spp0 = Hmisc::mdb.get(file_in("data/processCounts.mdb"), tables = "FinalPercent", stringsAsFactors = FALSE) %>%
     mutate(
       sampleId = tolower(sampleId),
       perc = as.vector(perc)
     ) %>%
     #sites with chemistry
     semi_join(env, by = c("sampleId" = "siteId" )) %>%
+    #merge taxa merged in fossil data
+    mutate(taxonCode = case_when(
+      taxonCode %in% c("DiaMon", "DiaTen") ~ "DiaCom",
+      taxonCode %in% c("EpiAdn", "EpiSor", "EpiTur") ~ "EpiCom",
+      TRUE ~ taxonCode
+    )) %>%
+    group_by(countryId, sampleId, taxonCode) %>%
+    summarise(perc = sum(perc)) %>%
+    ungroup() %>%
     pivot_wider(
       names_from = "taxonCode",
       values_from = "perc",
@@ -177,6 +186,14 @@ plan <- drake_plan(
 config <- drake_config(plan = plan)
 
 if(FALSE){#testbed
+
+.x <-   recon_sig %>% ungroup() %>% slice(1) %>% pull(recon_sig)
+.x <- .x[[1]]
+palaeoSig:::fortify_palaeosig(sim = .x$sim, variable_names = "log(TN)",
+                  p_val = 0.05, nbins = 20, top = 0.7, PC1 = .x$MAX,
+                  EX = .x$EX)
+autoplot_sig(x_fort, xlab = "Proportion variance explained",
+             xmin = 0)
 
   sort(setdiff(names(fos_percent), names(spp)))
   sort(setdiff(names(spp), names(fos_percent)))
