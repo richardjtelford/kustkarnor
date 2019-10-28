@@ -217,8 +217,6 @@ config <- drake_config(plan = plan)
 
 if(FALSE){#testbed
 
-  sort(setdiff(names(fos_percent), names(spp)))
-  sort(setdiff(names(spp), names(fos_percent)))
 }
 
 config
