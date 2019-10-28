@@ -3,9 +3,12 @@ library("tidyverse")
 library("assertr")
 #library("readxl")
 library("vegan")
+#devtools::install_github("gavinsimpson/ggvegan", upgrade = FALSE)
+library("ggvegan")
 library("rioja")
 library("palaeoSig")
 library("here")
+#devtools::install_github("richardjtelford/ggpalaeo", upgrade = FALSE)
 library("ggpalaeo")
 library("magrittr")
 #library("Hmisc") # assumes you have mdb-tools installed
@@ -50,10 +53,18 @@ plan <- drake_plan(
 
   site_map = {
     mp <- map_data("world", xlim = c(-10, 50), ylim = c(40, 75))
-  ggplot(envT, aes(x = longitude, y = latitude, colour = countryId)) +
-    geom_map(map = mp, data = mp, aes(map_id = region), inherit.aes = FALSE, fill = "grey70") +
-    geom_point() +
-    coord_quickmap()},
+  ggplot(envT, aes(x = longitude, y = latitude, size = TN)) +
+    geom_map(map = mp, data = mp, aes(map_id = region), inherit.aes = FALSE, fill = "grey70", colour = "grey50") +
+    geom_point(alpha = 0.5, colour = "red") +
+    coord_quickmap() +
+    scale_size_area() +
+    labs(x = "°E", y = "°N", size = "log(TN)")
+    },
+
+  ## Pairs plot
+  pairs_plot = envT %>%
+    select(-siteId, -countryId, -longitude, -exposed) %>%
+    GGally::ggpairs(),
 
   #load species data
   spp0 = Hmisc::mdb.get(file_in("data/processCounts.mdb"), tables = "FinalPercent", stringsAsFactors = FALSE) %>%
@@ -83,14 +94,19 @@ plan <- drake_plan(
     verify(identical(sampleId, envT$siteId)) %>%
     select(-countryId, -sampleId),
 
+  ## modern ordination
+  mod_decorana = decorana(sqrt(spp)),
+
+  mod_cca = cca(sqrt(spp) ~ TN, data = envT),
+
+  mod_cca1 = cca(sqrt(spp) ~ salinity + depth + TN + TP, data = envT),
+  mod_cca1_plot = autoplot(mod_cca1),
+
   ####load fossil data ####
   fos0 = readxl::read_xlsx(
     file_in(!!here("data", "Alla kustkärnor med koder_20190903.xlsx")),
     sheet = "Sheet1", skip = 1) %>%
-    rename(site = ...1, sample = ...2, depth = ...3, date = ...4, countsum = ...5),
-
-  #calculate percent
-  fos_percent = fos0 %>%
+    rename(site = ...1, sample = ...2, depth = ...3, date = ...4, countsum = ...5) %>%
     #check countsum matches actual countsums
     verify(all.equal(
       countsum,
@@ -106,11 +122,25 @@ plan <- drake_plan(
     summarise(count = sum(count)) %>%
     #calculate percent
     mutate(percent = count/sum(count) * 100) %>%
-    select(-count) %>%
     #delete taxa with all zero abundances
     group_by(taxa) %>%
-    filter(sum(percent) > 0) %>%
-    pivot_wider(names_from = taxa, values_from = percent) ,
+    filter(sum(percent) > 0),
+
+  #calculate percent
+  fos_percent = fos0 %>%
+    select(-count) %>%
+    pivot_wider(names_from = taxa, values_from = percent),
+
+  ## New fossil taxa
+  fos_new_taxa = readxl::read_xlsx(file_in(!!here("data", "Alla kustkärnor med koder_20190903.xlsx")), sheet = "New taxa"),
+
+  fos_new_taxa_abun = fos0 %>%
+    filter(!taxa %in% names(spp), count > 0) %>%
+    left_join(fos_new_taxa, by = c("taxa" = "Code")) %>%
+    group_by(taxa, Taxon) %>%
+    summarise(n = n(), max= max(percent)) %>%
+    arrange(desc(max)),
+
 
   #####diagnostics####
   #coverage
@@ -186,14 +216,6 @@ plan <- drake_plan(
 config <- drake_config(plan = plan)
 
 if(FALSE){#testbed
-
-.x <-   recon_sig %>% ungroup() %>% slice(1) %>% pull(recon_sig)
-.x <- .x[[1]]
-palaeoSig:::fortify_palaeosig(sim = .x$sim, variable_names = "log(TN)",
-                  p_val = 0.05, nbins = 20, top = 0.7, PC1 = .x$MAX,
-                  EX = .x$EX)
-autoplot_sig(x_fort, xlab = "Proportion variance explained",
-             xmin = 0)
 
   sort(setdiff(names(fos_percent), names(spp)))
   sort(setdiff(names(spp), names(fos_percent)))

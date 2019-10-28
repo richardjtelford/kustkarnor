@@ -8,11 +8,47 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 theme_set(theme_bw())
+options(digits = 2)
 ```
 
 ```{r load-data}
 loadd(fos_percent)
 ```
+
+## Calibration set sites
+
+
+```{r site-map, fig.height=6, fig.width=6}
+readd(site_map)
+```
+
+## Environmental variables
+
+```{r pairs-plot}
+readd(pairs_plot)
+```
+
+## Ordinations
+### Decorana for gradient length
+
+```{r DCA}
+readd(mod_decorana)
+```
+
+### CCA
+```{r cca}
+loadd(mod_cca)
+```
+
+For TN as a sole predictor $\lambda_1/\lambda_2$ = `r eigenvals(mod_cca)[1]/eigenvals(mod_cca)[2]`. This is very short for a reconstruction. Salinity is probably the major gradient.
+
+```{r cca-plot}
+readd(mod_cca1_plot)
+```
+
+
+
+## Fossil stratigraphies
 
 ```{r stratigraphies, results = "hide"}
 mgp <- c(1.5, .3, 0)
@@ -49,6 +85,16 @@ map2(
   ))
   
 ```
+
+## New taxa
+
+Taxa with names are in excel sheet new taxa.
+
+```{r}
+readd(fos_new_taxa_abun) %>% 
+  knitr::kable()
+```
+
 
 ## Coverage plots
 
