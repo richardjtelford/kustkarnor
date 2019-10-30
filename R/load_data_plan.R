@@ -58,6 +58,11 @@ data_plan <- drake_plan(
     )) %>%
     group_by(countryId, sampleId, taxonCode) %>%
     summarise(perc = sum(perc)) %>%
+    #remove rare taxa
+    group_by(taxonCode) %>%
+    filter(
+      max(perc) >= 2, #max percent >= 2
+      n() >= 2) %>% # at least 2 occurances
     ungroup() %>%
     pivot_wider(
       names_from = "taxonCode",
