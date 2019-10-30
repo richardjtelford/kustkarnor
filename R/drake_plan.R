@@ -5,6 +5,7 @@ library("assertr")
 library("vegan")
 #devtools::install_github("gavinsimpson/ggvegan", upgrade = FALSE)
 library("ggvegan")
+#devtools::install_github("nsj/rioja", upgrade = FALSE)#need latest version
 library("rioja")
 library("palaeoSig")
 library("here")

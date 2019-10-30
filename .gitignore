@@ -45,3 +45,5 @@
 
 
 *.DS_Store
+packrat/lib*/
+packrat/src/
