@@ -12,6 +12,8 @@ library("here")
 library("ggpalaeo")
 library("magrittr")
 #library("Hmisc") # assumes you have mdb-tools installed
+library("ggnewscale")
+
 
 source("R/coverage_plot.R")#replacement for palaeoSig version allowing for grouped data
 
@@ -120,6 +122,21 @@ analysis_plan <- drake_plan(
       recon_sig_plot = map(recon_sig, autoplot, variable_names = "log(TN)"),
       recon_sig_plot = map2(.x = recon_sig_plot, .y = site, ~{.x + ggtitle(.y)})
       ),
+
+  #time-track
+  time_track_plot = {
+    tt <- analogue::timetrack(
+      X = spp,
+      passive = select(fos_percent,-(site:date)),
+      env = envT$TN, transform = "sqrt")
+
+  autoplot(tt$ordination, layers = c("sites", "biplot")) +
+    guides(colour = "none", shape = "none") +
+    new_scale_color() +
+    geom_path(
+      data = as_tibble(tt$fitted.values) %>% bind_cols(fos_percent),
+      aes(x = CCA1, y = CA1, colour = site))
+  },
 
   #rmarkdown
   output = rmarkdown::render(knitr_in("kustkarnor.Rmd"))

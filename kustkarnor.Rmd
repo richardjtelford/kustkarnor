@@ -137,3 +137,9 @@ readd(pred_plot)
 cowplot::plot_grid(plotlist = readd(recon_sig)$recon_sig_plot)
 ```
 
+## Time track
+
+```{r timetrack}
+readd(time_track_plot)
+```
+
