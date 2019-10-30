@@ -3,6 +3,9 @@
 data_plan <- drake_plan(
   ####load calibration data####
 
+  #salinity limits
+  salinity_lims = c(1, 10),
+
   #read env data
   env = Hmisc::mdb.get(file_in("data/define.mdb"), tables = "fchem") %>%
     #remove annoying labels
@@ -17,15 +20,18 @@ data_plan <- drake_plan(
       siteId == "mo-2" ~ 20, # wide range, estimated from range
       siteId == "s-9" ~ 16, # wide range, estimated from range
       TRUE ~ salinity)) %>%
-    #zap missing data
-    filter(!is.na(TN)),
+    filter(
+      #zap missing data
+      !is.na(TN),
+      #limit salinity range
+      between(salinity, salinity_lims[1], salinity_lims[2])
+    ),
 
 
   #transform env
   envT = env %>%
     select(siteId, salinity, depth, TN, TP, exposed, countryId, latitude, longitude) %>%
     mutate(
-      salinity = sqrt(salinity),
       depth = log(depth),
       TP = log(TP),
       TN = log(TN),
