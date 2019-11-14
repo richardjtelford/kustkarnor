@@ -5,15 +5,35 @@ library("RSQLite")
 library("glue")
 
 #### import function ####
-import_table <- function(mdb, table){
+import_table <- function(mdb, table, overwrite = TRUE){
+  fix_names <- . %>%
+    str_replace_all("/", "_")
+
+  fix_data <- . %>%
+    str_remove("\r") %>%
+    str_remove("<br>")
+
   ### export data
-  import_sql <- system(glue("mdb-export -H -I sqlite {mdb} {table}"), intern = TRUE)
+  import_sql <- system(glue("mdb-export -H -I sqlite {mdb} {table}"), intern = TRUE) %>%
+    fix_names() %>%
+    fix_data() %>%
+    #collapse and resplit on INSERT
+    str_c(collapse = " ") %>%
+    str_split("(?=INSERT)") %>%
+    pluck(1)
 
+  import_sql <- import_sql[import_sql != ""]#remove empty elements
   ## export schema
-  schema <- system(glue("mdb-schema {env_mdb} -T {table}"), intern = TRUE) %>%
-    paste(collapse = "\n")
+  schema <- system(glue("mdb-schema {mdb} -T {table}"), intern = TRUE) %>%
+    paste(collapse = "\n") %>%
+    fix_names()
 
-  #setup fchem table
+  #drop table if it already exists and overwrite is TRUE
+  if(isTRUE(overwrite) & table %in% dbListTables(con)){
+    dbExecute(conn = con, glue("DROP TABLE {table}"))
+  }
+
+  #setup table
   dbExecute(statement = schema, conn = con)
 
   #import fchem data
@@ -31,34 +51,28 @@ if(file.exists("data/define.sqlite")){
 #make new empty database
 con <- dbConnect(SQLite(), dbname = "data/define.sqlite")
 
-# path to exported data
-system('mkdir -p data/sql')
-
-#raw data files
-spp_mdb <- "raw-data/processCounts.mdb"
-
-#### enviroment ####
+#### import enviroment ####
 import_table(mdb = "raw-data/define.mdb", table = "fchem")
 
+#### import taxonomy ####
+import_table(mdb = "raw-data/definetaxonomy.mdb", table = "cleanTaxa")
+import_table(mdb = "raw-data/definetaxonomy.mdb", table = "Synonyms")
+import_table(mdb = "raw-data/definetaxonomy.mdb", table = "Merges")
+import_table(mdb = "raw-data/processCounts.mdb", table = "MergeCodes")
 
-#check fchem
-tbl(con, "fchem") %>%
-  collect()
+#counts
+import_table(mdb = "raw-data/defineCounts.mdb", table = "AllCounts")
+import_table(mdb = "raw-data/moltenSurfaceCounts2000.mdb", table = "MCodedCounts")
+
 
 #excluded taxa
-#defineCounts.mdb -defineCounts
-#molten/moltenSurfaceCounts2000.mdb
-#definetaxonomy.mdb synonyms & merges
+import_table(mdb = "raw-data/processCounts.mdb", table = "ExcludedTaxa")
+
+
+
 
 #check what tables have been added
 dbListTables(con)
 
 ### cleanup ####
 dbDisconnect(conn = con)
-
-
-
-
-#extract raw counts  & merges from access files
-#read sqlite database and process counts
-
