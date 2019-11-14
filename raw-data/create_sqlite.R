@@ -72,10 +72,10 @@ import_table(mdb = "raw-data/processCounts.mdb", table = "ExcludedTaxa")
 #union count data
 bind_rows(
   tbl(con, "MCodedCounts") %>%
-    rename(siteID = siteId, taxonCode = MoltenCode) %>%
+    rename(taxonCode = MoltenCode) %>%
     collect(),
   tbl(con, "AllCounts") %>%
-    rename(count = cnt) %>%
+    rename(siteId = siteID, count = cnt) %>%
     mutate(count = as.numeric(count)) %>%
     collect()
 ) %>%
