@@ -14,6 +14,8 @@ library("ggpalaeo")
 library("magrittr")
 #library("Hmisc") # assumes you have mdb-tools installed
 library("ggnewscale")
+library("conflicted")
+conflict_prefer("filter", "dplyr")
 
 
 source("R/coverage_plot.R")#replacement for palaeoSig version allowing for grouped data
