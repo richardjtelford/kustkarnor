@@ -21,8 +21,7 @@ env_mdb <- "raw-data/define.mdb"
 spp_mdb <- "raw-data/processCounts.mdb"
 
 # ## export env data
-fchem <- system(glue("mdb-export -H -I sqlite {env_mdb} fchem"), intern = TRUE) %>%
-  paste(collapse = "\n")
+fchem <- system(glue("mdb-export -H -I sqlite {env_mdb} fchem"), intern = TRUE)
 
 ## export env schema
 env_setup <- system(glue("mdb-schema {env_mdb} -T fchem"), intern = TRUE) %>%
@@ -32,12 +31,17 @@ env_setup <- system(glue("mdb-schema {env_mdb} -T fchem"), intern = TRUE) %>%
 dbExecute(statement = env_setup, conn = con)
 
 #import fchem data
-dbExecute(conn = con, statement = fchem)
+walk(fchem, ~dbExecute(conn = con, statement = .x))
+
+#check fchem
+tbl(con, "fchem") %>%
+  collect()
+
+
 
 
 #check what tables have been added
 dbListTables(con)
-
 
 ### cleanup ####
 dbDisconnect(conn = con)
@@ -46,6 +50,5 @@ dbDisconnect(conn = con)
 
 
 #extract raw counts  & merges from access files
-#create sqlite database
 #read sqlite database and process counts
 
