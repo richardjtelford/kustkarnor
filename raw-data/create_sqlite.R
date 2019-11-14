@@ -4,6 +4,24 @@ library("DBI")
 library("RSQLite")
 library("glue")
 
+#### import function ####
+import_table <- function(mdb, table){
+  ### export data
+  import_sql <- system(glue("mdb-export -H -I sqlite {mdb} {table}"), intern = TRUE)
+
+  ## export schema
+  schema <- system(glue("mdb-schema {env_mdb} -T {table}"), intern = TRUE) %>%
+    paste(collapse = "\n")
+
+  #setup fchem table
+  dbExecute(statement = schema, conn = con)
+
+  #import fchem data
+  walk(import_sql, ~dbExecute(conn = con, statement = .x))
+}
+
+
+
 #### make sqlite3 database ####
 #delete existing version
 if(file.exists("data/define.sqlite")){
@@ -17,28 +35,20 @@ con <- dbConnect(SQLite(), dbname = "data/define.sqlite")
 system('mkdir -p data/sql')
 
 #raw data files
-env_mdb <- "raw-data/define.mdb"
 spp_mdb <- "raw-data/processCounts.mdb"
 
-# ## export env data
-fchem <- system(glue("mdb-export -H -I sqlite {env_mdb} fchem"), intern = TRUE)
+#### enviroment ####
+import_table(mdb = "raw-data/define.mdb", table = "fchem")
 
-## export env schema
-env_setup <- system(glue("mdb-schema {env_mdb} -T fchem"), intern = TRUE) %>%
-  paste(collapse = "\n")
-
-#setup fchem table
-dbExecute(statement = env_setup, conn = con)
-
-#import fchem data
-walk(fchem, ~dbExecute(conn = con, statement = .x))
 
 #check fchem
 tbl(con, "fchem") %>%
   collect()
 
-
-
+#excluded taxa
+#defineCounts.mdb -defineCounts
+#molten/moltenSurfaceCounts2000.mdb
+#definetaxonomy.mdb synonyms & merges
 
 #check what tables have been added
 dbListTables(con)
