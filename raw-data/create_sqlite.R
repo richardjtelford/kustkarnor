@@ -69,6 +69,22 @@ import_table(mdb = "raw-data/moltenSurfaceCounts2000.mdb", table = "MCodedCounts
 import_table(mdb = "raw-data/processCounts.mdb", table = "ExcludedTaxa")
 
 
+#union count data
+bind_rows(
+  tbl(con, "MCodedCounts") %>%
+    rename(siteID = siteId, taxonCode = MoltenCode) %>%
+    collect(),
+  tbl(con, "AllCounts") %>%
+    rename(count = cnt) %>%
+    mutate(count = as.numeric(count)) %>%
+    collect()
+) %>%
+  dbWriteTable(conn = con, name = "counts")
+
+#drop original counts
+db_drop_table(con = con, "AllCounts")
+db_drop_table(con = con, "MCodedCounts")
+
 
 
 #check what tables have been added
