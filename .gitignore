@@ -27,7 +27,7 @@
 *.docx
 *.xlsx#
 *.rar
-*.sqlite
+*.mdb
 *.dat
 
 #rasters & shapefiles
