@@ -1,4 +1,5 @@
 library("drake")
+requireNamespace("visNetwork")
 
 r_make(source = "R/drake_plan.R")
 
