@@ -3,14 +3,15 @@
 data_plan <- drake_plan(
   ####load calibration data####
 
+  #database
+  con = DBI::dbConnect(RSQLite::SQLite(), dbname = file_in(!!here("data", "define.sqlite"))),
+
   #salinity limits
   salinity_lims = c(1, 10),
 
   #read env data
-  env = Hmisc::mdb.get(file_in("data/define.mdb"), tables = "fchem") %>%
-    #remove annoying labels
-    mutate_if(is.numeric, as.vector) %>%
-    as_tibble() %>%
+  env = tbl(src = con, "fchem") %>%
+    collect() %>%
     #siteId to lower case
     mutate(siteId = tolower(siteId)) %>%
     #TN = TDN * 1.5
