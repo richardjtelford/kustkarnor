@@ -85,6 +85,25 @@ bind_rows(
 db_drop_table(con = con, "AllCounts")
 db_drop_table(con = con, "MCodedCounts")
 
+#fix cases in countryId
+tbl(con, "Merges") %>%
+  collect() %>%
+  mutate(dataSet = str_to_title(dataSet)) %>%
+  rename(countryId = dataSet) %>%
+  dbWriteTable(conn = con, name = "Merges", overwrite = TRUE)
+
+tbl(con, "fchem") %>%
+  collect() %>%
+  mutate(countryId = str_to_title(countryId)) %>%
+  mutate(siteId = if_else(siteId == "Dk1", "DK1", siteId)) %>%
+  dbWriteTable(conn = con, name = "fchem", overwrite = TRUE)
+
+
+#fix case problems in spp names
+case_fixes <- tribble(~correctCode,  ~synonymCode,
+                      "RhiSpi", "RhiSPi",
+                      "PlanHau", "Planhau")
+dbWriteTable(conn = con, name = "Synonyms", value = case_fixes, append = TRUE)
 
 
 #check what tables have been added
