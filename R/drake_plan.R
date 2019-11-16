@@ -17,6 +17,12 @@ library("ggnewscale")
 library("conflicted")
 conflict_prefer("filter", "dplyr")
 
+#database connection
+conn <- function(db){
+  DBI::dbConnect(
+    RSQLite::SQLite(),
+    dbname = db)
+}
 
 source("R/coverage_plot.R")#replacement for palaeoSig version allowing for grouped data
 

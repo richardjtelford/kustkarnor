@@ -3,17 +3,11 @@
 data_plan <- drake_plan(
   ####load calibration data####
 
-  #database
-  con = DBI::dbConnect(RSQLite::SQLite(), dbname = file_in(!!here("data", "define.sqlite"))),
-
   #salinity limits
   salinity_lims = c(1, 10),
 
   #read env data
-  env = tbl(src = con, "fchem") %>%
-    collect() %>%
-    #siteId to lower case
-    mutate(siteId = tolower(siteId)) %>%
+  env = tbl(src = conn(file_in(here("data", "define.sqlite"))), "fchem") %>%
     #TN = TDN * 1.5
     mutate(TN = if_else(!is.na(TDN), true = TDN * 1.5, false = TN)) %>%
     #missing Norwegian salinities
@@ -23,7 +17,10 @@ data_plan <- drake_plan(
       TRUE ~ salinity)) %>%
     filter(
       #zap missing data
-      !is.na(TN),
+      !is.na(TN)
+      ) %>%
+    collect() %>%
+    filter(
       #limit salinity range
       between(salinity, salinity_lims[1], salinity_lims[2])
     ),
@@ -38,43 +35,62 @@ data_plan <- drake_plan(
       TN = log(TN),
       exposed = exposed == "1") %>% #no exposed sites?
     #sites with diatom data
-    semi_join(spp0, by = c(siteId = "sampleId")) %>%
-    arrange(siteId),
+    semi_join(spp0, by = c("siteId")) %>%
+    arrange(siteId) %>% collect(),
   # all.env<-!is.na(rowSums(envT[,2:5]))
   # env$siteId[!all.env]
 
   #load species data
-  spp0 = Hmisc::mdb.get(file_in("data/processCounts.mdb"), tables = "FinalPercent", stringsAsFactors = FALSE) %>%
+  spp0 = {
+    con <- conn(file_in(!!here("data", "define.sqlite")))
+    tbl(con, "counts") %>%
+    #merge synonyms
+    left_join(tbl(con, "Synonyms"), by = c("taxonCode" = "synonymCode")) %>%
+    mutate(taxonCode = coalesce(correctCode, taxonCode)) %>%
+    #get country code for merges & drop samples with no chem - "RIB16102b"
+    inner_join(tbl(con, "fchem") %>% select(siteId, countryId), by  = "siteId") %>%
+    left_join(tbl(con, "Merges"), by = c("taxonCode" = "oldtaxonCode", "countryId")) %>%
     mutate(
-      sampleId = tolower(sampleId),
-      perc = as.vector(perc)
+      taxonCode = coalesce(mergedTaxonCode, taxonCode)
     ) %>%
-    #sites with chemistry
-    semi_join(env, by = c("sampleId" = "siteId" )) %>%
+    #remove excluded taxa
+    anti_join(tbl(con, "ExcludedTaxa"), by = "taxonCode") %>%
+    #select required columns
+    select(siteId, taxonCode, count) %>%
+    #sum merged taxa
+    group_by(siteId, taxonCode) %>%
+    collect() %>%
+    assert(not_na, everything()) %>%
+    summarise(count = sum(count, na.rm = TRUE)) %>% # , na.rm = TRUE to avoid warning
+    mutate(percent = count / sum(count, na.rm = TRUE) * 100) %>%
+    #drop samples that don't meet salinity criteria
+    semi_join(env, by  = "siteId")
+    },
+
+  #clean, check then remove meta data
+  spp = spp0 %>%
     #merge taxa merged in fossil data
     mutate(taxonCode = case_when(
       taxonCode %in% c("DiaMon", "DiaTen") ~ "DiaCom",
       taxonCode %in% c("EpiAdn", "EpiSor", "EpiTur") ~ "EpiCom",
       TRUE ~ taxonCode
     )) %>%
-    group_by(countryId, sampleId, taxonCode) %>%
-    summarise(perc = sum(perc)) %>%
+    group_by(siteId, taxonCode) %>%
+    summarise(percent = sum(percent)) %>%
     #remove rare taxa
     group_by(taxonCode) %>%
     filter(
-      max(perc) >= 2, #max percent >= 2
+      max(percent) >= 2, #max percent >= 2
       n() >= 2) %>% # at least 2 occurances
     ungroup() %>%
     pivot_wider(
       names_from = "taxonCode",
-      values_from = "perc",
-      values_fill = list(perc = 0)) %>%
-    arrange(sampleId),
-
-  #check then remove meta data
-  spp = spp0 %>%
-    verify(identical(sampleId, envT$siteId)) %>%
-    select(-countryId, -sampleId),
+      values_from = "percent",
+      values_fill = list(percent = 0)) %>%
+    arrange(siteId) %>%
+    #check identical sampleId to envT
+    verify(identical(siteId, envT$siteId)) %>%
+    select(-siteId),
 
   ####load fossil data ####
   fos0 = readxl::read_xlsx(
