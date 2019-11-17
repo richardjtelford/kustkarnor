@@ -2,12 +2,14 @@
 
 data_plan <- drake_plan(
   ####load calibration data####
+  #database
+  db = file_in(!!here("data", "define.sqlite")),
 
   #salinity limits
   salinity_lims = c(1, 10),
 
   #read env data
-  env = tbl(src = conn(file_in(here("data", "define.sqlite"))), "fchem") %>%
+  env = tbl(src = conn(db), "fchem") %>%
     #TN = TDN * 1.5
     mutate(TN = if_else(!is.na(TDN), true = TDN * 1.5, false = TN)) %>%
     #missing Norwegian salinities
@@ -17,13 +19,11 @@ data_plan <- drake_plan(
       TRUE ~ salinity)) %>%
     filter(
       #zap missing data
-      !is.na(TN)
-      ) %>%
-    collect() %>%
-    filter(
+      !is.na(TN),
       #limit salinity range
-      between(salinity, salinity_lims[1], salinity_lims[2])
-    ),
+      between(salinity, !!salinity_lims[1], !!salinity_lims[2])
+    ) %>%
+    collect(),
 
 
   #transform env
@@ -42,7 +42,7 @@ data_plan <- drake_plan(
 
   #load species data
   spp0 = {
-    con <- conn(file_in(!!here("data", "define.sqlite")))
+    con <- conn(db)
     tbl(con, "counts") %>%
     #merge synonyms
     left_join(tbl(con, "Synonyms"), by = c("taxonCode" = "synonymCode")) %>%
