@@ -12,7 +12,6 @@ library("here")
 #devtools::install_github("richardjtelford/ggpalaeo", upgrade = FALSE)
 library("ggpalaeo")
 library("magrittr")
-#library("Hmisc") # assumes you have mdb-tools installed
 library("ggnewscale")
 library("conflicted")
 conflict_prefer("filter", "dplyr")
