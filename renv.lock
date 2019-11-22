@@ -701,8 +701,7 @@
     "rioja": {
       "Package": "rioja",
       "Version": "0.9-24",
-      "Source": "Repository",
-      "Repository": "CRAN",
+      "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteRepo": "rioja",
