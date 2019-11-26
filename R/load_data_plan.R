@@ -1,6 +1,7 @@
 ## plan to load data
 
 data_plan <- drake_plan(
+  tidy_eval = FALSE,
   ####load calibration data####
   #database
   db = file_in(!!here("data", "define.sqlite")),
